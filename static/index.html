@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办事项管理</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header class="header">
+            <h1 class="title">📝 待办事项管理</h1>
+            <p class="subtitle">简单高效的任务管理工具</p>
+        </header>
+
+        <!-- 添加待办事项表单 -->
+        <section class="add-section">
+            <form id="add-form" class="add-form">
+                <div class="form-group">
+                    <input 
+                        type="text" 
+                        id="title-input" 
+                        placeholder="输入待办事项标题..." 
+                        required
+                        maxlength="100"
+                    >
+                </div>
+                <div class="form-group">
+                    <textarea 
+                        id="description-input" 
+                        placeholder="添加描述（可选）..." 
+                        rows="3"
+                        maxlength="500"
+                    ></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <span class="btn-icon">➕</span>
+                    添加待办事项
+                </button>
+            </form>
+        </section>
+
+        <!-- 统计信息 -->
+        <section class="stats-section">
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-number" id="total-count">0</span>
+                    <span class="stat-label">总计</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="completed-count">0</span>
+                    <span class="stat-label">已完成</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="pending-count">0</span>
+                    <span class="stat-label">待完成</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 待办事项列表 -->
+        <section class="todos-section">
+            <div class="todos-header">
+                <h2>待办事项列表</h2>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">全部</button>
+                    <button class="filter-btn" data-filter="pending">待完成</button>
+                    <button class="filter-btn" data-filter="completed">已完成</button>
+                </div>
+            </div>
+            
+            <div id="todos-list" class="todos-list">
+                <!-- 待办事项将在这里动态生成 -->
+            </div>
+
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-icon">📋</div>
+                <h3>暂无待办事项</h3>
+                <p>添加你的第一个待办事项开始管理任务吧！</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div id="edit-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>编辑待办事项</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <form id="edit-form" class="modal-form">
+                <div class="form-group">
+                    <label for="edit-title">标题</label>
+                    <input 
+                        type="text" 
+                        id="edit-title" 
+                        required
+                        maxlength="100"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="edit-description">描述</label>
+                    <textarea 
+                        id="edit-description" 
+                        rows="4"
+                        maxlength="500"
+                    ></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="edit-completed">
+                        <span class="checkmark"></span>
+                        已完成
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-edit">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>加载中...</p>
+    </div>
+
+    <!-- 消息提示 -->
+    <div id="message" class="message" style="display: none;"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
