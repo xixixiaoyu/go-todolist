@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前端功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Go Todolist 前端功能测试</h1>
+    
+    <div class="test-section">
+        <h2>📡 API 连接测试</h2>
+        <button class="test-button" onclick="testAPIConnection()">测试 API 连接</button>
+        <div id="api-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>➕ 创建待办事项测试</h2>
+        <button class="test-button" onclick="testCreateTodo()">创建测试待办事项</button>
+        <div id="create-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 更新待办事项测试</h2>
+        <button class="test-button" onclick="testUpdateTodo()">更新待办事项状态</button>
+        <div id="update-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🗑️ 删除待办事项测试</h2>
+        <button class="test-button" onclick="testDeleteTodo()">删除待办事项</button>
+        <div id="delete-result" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🌐 前端界面测试</h2>
+        <a href="http://localhost:8080" target="_blank" class="test-button" style="text-decoration: none; display: inline-block;">打开前端界面</a>
+        <p>点击上方按钮在新标签页中打开前端界面进行手动测试。</p>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api/todos';
+        let testTodoId = null;
+
+        async function apiCall(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers,
+                    },
+                    ...options,
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: '请求失败' }));
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                return response.status === 204 ? null : await response.json();
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function showResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+            element.style.display = 'block';
+        }
+
+        async function testAPIConnection() {
+            try {
+                const todos = await apiCall(API_BASE);
+                showResult('api-result', `✅ API 连接成功！当前有 ${todos.length} 个待办事项。`, true);
+            } catch (error) {
+                showResult('api-result', `❌ API 连接失败：${error.message}`, false);
+            }
+        }
+
+        async function testCreateTodo() {
+            try {
+                const newTodo = await apiCall(API_BASE, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: '测试待办事项',
+                        description: '这是一个自动化测试创建的待办事项'
+                    }),
+                });
+                testTodoId = newTodo.id;
+                showResult('create-result', `✅ 创建成功！待办事项 ID: ${newTodo.id}`, true);
+            } catch (error) {
+                showResult('create-result', `❌ 创建失败：${error.message}`, false);
+            }
+        }
+
+        async function testUpdateTodo() {
+            if (!testTodoId) {
+                showResult('update-result', '❌ 请先创建一个测试待办事项', false);
+                return;
+            }
+
+            try {
+                const updatedTodo = await apiCall(`${API_BASE}/${testTodoId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ completed: true }),
+                });
+                showResult('update-result', `✅ 更新成功！待办事项已标记为完成。`, true);
+            } catch (error) {
+                showResult('update-result', `❌ 更新失败：${error.message}`, false);
+            }
+        }
+
+        async function testDeleteTodo() {
+            if (!testTodoId) {
+                showResult('delete-result', '❌ 请先创建一个测试待办事项', false);
+                return;
+            }
+
+            try {
+                await apiCall(`${API_BASE}/${testTodoId}`, {
+                    method: 'DELETE',
+                });
+                showResult('delete-result', `✅ 删除成功！待办事项 ID ${testTodoId} 已被删除。`, true);
+                testTodoId = null;
+            } catch (error) {
+                showResult('delete-result', `❌ 删除失败：${error.message}`, false);
+            }
+        }
+
+        // 页面加载时自动测试 API 连接
+        window.addEventListener('load', testAPIConnection);
+    </script>
+</body>
+</html>

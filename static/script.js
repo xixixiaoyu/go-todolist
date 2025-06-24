@@ -53,6 +53,21 @@ function setupEventListeners() {
       closeEditModal()
     }
   })
+
+  // ESC 键关闭模态框
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && editModal.style.display !== 'none') {
+      closeEditModal()
+    }
+  })
+
+  // Enter 键快捷提交
+  titleInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      addForm.dispatchEvent(new Event('submit'))
+    }
+  })
 }
 
 // API 调用函数
@@ -68,12 +83,13 @@ async function apiCall(url, options = {}) {
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || '请求失败')
+      const errorData = await response.json().catch(() => ({ error: '请求失败' }))
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
     }
 
     return response.status === 204 ? null : await response.json()
   } catch (error) {
+    console.error('API 调用失败:', error)
     showMessage(error.message, 'error')
     throw error
   } finally {
@@ -93,12 +109,13 @@ async function apiCallWithoutGlobalLoading(url, options = {}) {
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || '请求失败')
+      const errorData = await response.json().catch(() => ({ error: '请求失败' }))
+      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
     }
 
     return response.status === 204 ? null : await response.json()
   } catch (error) {
+    console.error('API 调用失败:', error)
     showMessage(error.message, 'error')
     throw error
   }
@@ -112,6 +129,9 @@ async function loadTodos() {
     updateStats()
   } catch (error) {
     console.error('加载待办事项失败:', error)
+    // 显示空状态，让用户知道加载失败
+    todosList.style.display = 'none'
+    emptyState.style.display = 'block'
   }
 }
 
@@ -122,8 +142,22 @@ async function handleAddTodo(e) {
   const title = titleInput.value.trim()
   const description = descriptionInput.value.trim()
 
+  // 客户端验证
   if (!title) {
     showMessage('请输入标题', 'error')
+    titleInput.focus()
+    return
+  }
+
+  if (title.length > 100) {
+    showMessage('标题长度不能超过100个字符', 'error')
+    titleInput.focus()
+    return
+  }
+
+  if (description.length > 500) {
+    showMessage('描述长度不能超过500个字符', 'error')
+    descriptionInput.focus()
     return
   }
 
@@ -141,12 +175,14 @@ async function handleAddTodo(e) {
       body: JSON.stringify({ title, description }),
     })
 
+    // 乐观更新：立即添加到列表开头
     todos.unshift(newTodo)
     renderTodos()
     updateStats()
 
     // 清空表单
     addForm.reset()
+    titleInput.focus() // 重新聚焦到标题输入框
     showMessage('待办事项添加成功！', 'success')
   } catch (error) {
     console.error('添加待办事项失败:', error)
@@ -243,6 +279,87 @@ function closeEditModal() {
   editForm.reset()
 }
 
+// 处理编辑表单提交
+async function handleEditTodo(e) {
+  e.preventDefault()
+
+  if (!editingTodoId) return
+
+  const title = editTitle.value.trim()
+  const description = editDescription.value.trim()
+  const completed = editCompleted.checked
+
+  // 客户端验证
+  if (!title) {
+    showMessage('请输入待办事项标题', 'error')
+    editTitle.focus()
+    return
+  }
+
+  if (title.length > 100) {
+    showMessage('标题长度不能超过100个字符', 'error')
+    editTitle.focus()
+    return
+  }
+
+  if (description.length > 500) {
+    showMessage('描述长度不能超过500个字符', 'error')
+    editDescription.focus()
+    return
+  }
+
+  // 获取提交按钮，显示加载状态
+  const submitBtn = editForm.querySelector('button[type="submit"]')
+  const originalText = submitBtn.innerHTML
+
+  try {
+    // 设置按钮加载状态
+    submitBtn.disabled = true
+    submitBtn.innerHTML = '<span class="btn-spinner"></span>保存中...'
+
+    const updatedTodo = await apiCallWithoutGlobalLoading(`${API_BASE}/${editingTodoId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title, description, completed }),
+    })
+
+    // 更新本地数据
+    const index = todos.findIndex((t) => t.id === editingTodoId)
+    todos[index] = updatedTodo
+
+    renderTodos()
+    updateStats()
+    closeEditModal()
+    showMessage('待办事项更新成功！', 'success')
+  } catch (error) {
+    console.error('更新待办事项失败:', error)
+  } finally {
+    // 恢复按钮状态
+    submitBtn.disabled = false
+    submitBtn.innerHTML = originalText
+  }
+}
+
+// 打开编辑模态框
+function openEditModal(id) {
+  const todo = todos.find((t) => t.id === id)
+  if (!todo) return
+
+  editingTodoId = id
+  editTitle.value = todo.title
+  editDescription.value = todo.description
+  editCompleted.checked = todo.completed
+
+  editModal.style.display = 'flex'
+  editTitle.focus()
+}
+
+// 关闭编辑模态框
+function closeEditModal() {
+  editModal.style.display = 'none'
+  editingTodoId = null
+  editForm.reset()
+}
+
 // 处理编辑提交
 async function handleEditTodo(e) {
   e.preventDefault()
@@ -303,38 +420,41 @@ function renderTodos() {
   todosList.innerHTML = filteredTodos
     .map(
       (todo) => `
-        <div class="todo-item ${todo.completed ? 'completed' : ''}">
-            <input 
-                type="checkbox" 
-                class="todo-checkbox" 
-                ${todo.completed ? 'checked' : ''}
-                onchange="toggleTodo(${todo.id})"
-            >
+        <article class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
             <div class="todo-content">
-                <div class="todo-title">${escapeHtml(todo.title)}</div>
+                <div class="todo-header">
+                    <h3 class="todo-title">${escapeHtml(todo.title)}</h3>
+                    <div class="todo-actions">
+                        <button class="btn-icon" onclick="toggleTodo(${todo.id})" title="${
+        todo.completed ? '标记为未完成' : '标记为已完成'
+      }">
+                            ${todo.completed ? '↩️' : '✅'}
+                        </button>
+                        <button class="btn-icon" onclick="openEditModal(${todo.id})" title="编辑">
+                            ✏️
+                        </button>
+                        <button class="btn-icon btn-danger" onclick="deleteTodo(${
+                          todo.id
+                        })" title="删除">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
                 ${
                   todo.description
-                    ? `<div class="todo-description">${escapeHtml(todo.description)}</div>`
+                    ? `<p class="todo-description">${escapeHtml(todo.description)}</p>`
                     : ''
                 }
                 <div class="todo-meta">
-                    <span>创建于: ${formatDate(todo.created_at)}</span>
+                    <span class="todo-date">创建于 ${formatDate(todo.created_at)}</span>
                     ${
                       todo.updated_at !== todo.created_at
-                        ? `<span>更新于: ${formatDate(todo.updated_at)}</span>`
+                        ? `<span class="todo-date">更新于 ${formatDate(todo.updated_at)}</span>`
                         : ''
                     }
                 </div>
             </div>
-            <div class="todo-actions">
-                <button class="btn btn-small btn-secondary" onclick="openEditModal(${todo.id})">
-                    编辑
-                </button>
-                <button class="btn btn-small btn-danger" onclick="deleteTodo(${todo.id})">
-                    删除
-                </button>
-            </div>
-        </div>
+        </article>
     `
     )
     .join('')
